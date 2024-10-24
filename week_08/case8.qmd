@@ -1,0 +1,56 @@
+---
+title: "case_study08"
+format: html
+author: Olivia_Adomabea
+---
+ 
+## Quarto
+ 
+```{r}
+library(ggplot2)
+library(readr)
+```
+ 
+```{r}
+data <- readr::read_table(ftp://aftp.cmdl.noaa.gov/products/trends/co2/co2_annmean_mlo.txt, skip = 45, col_names = c("year", "mean", "unc"), cols(
+  year = col_double(),
+  mean = col_double(),
+  unc = col_double()
+))
+ 
+```
+ 
+## Running Code
+ 
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+ 
+```{r}
+# use
+ggplot(data = mean, aes(x = year, y = mean)) +
+geom_point() +
+geom_line()
+ 
+ 
+```
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
