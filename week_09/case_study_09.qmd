@@ -1,0 +1,76 @@
+---
+title: "Tracking Hurricanes"
+author: "Olivia"
+format: 
+  html: default
+editor: visual
+---
+
+```{r}
+library(sf)
+library(tidyverse)
+library(ggmap)
+library(spData)
+library(readr)
+library(lubridate)
+```
+
+```{r}
+# Load the datasets
+data(world)
+data(us_states)
+
+#Download csv from noaa with storm track information
+dataurl="https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.NA.list.v04r01.csv"
+storm_data <- read_csv(dataurl)
+```
+
+```{r}
+#Wrangle the data
+storm_data <- storm_data %>%
+  #creating new column
+  mutate(year=year(ISO_TIME))%>%
+  #filtering to present storm(from 1950-present)
+filter(year >= 1950)%>%
+  #mutate
+  mutate_if(is.numeric, function(x) ifelse(x==-999.0,NA,x))%>%
+#Adding column for a decade
+mutate(decade=(floor(year/10)*10))%>%
+#converting data to sf
+  st_as_sf(coords=c("LON","LAT"),crs=4326)
+#using st_bbox to identify (region)
+  region <- st_bbox(storm_data)
+```
+
+```{r}
+#creating plot
+ggplot() +
+  geom_sf(data = world) +
+#creating a panel for each decade using facet_wrap
+#adding stat_bind2
+  stat_bin2d(data=storm_data, aes(y=st_coordinates(storm_data)[,2], x=st_coordinates(storm_data)[,1]),bins=100) +
+  facet_wrap(~decade) +
+#using scale to set the color ramp
+  scale_fill_distiller(palette="YlOrRd", trans="log", direction=-1, breaks = c(1,10,100,1000)) +
+ # using coord to crop the plot to the region
+  coord_sf(ylim=region[c(2,4)], xlim=region[c(1,3)])
+```
+
+```{r}
+#calculate table of the five states with most storms
+us_state <- st_transform(us_states, st_crs(storm_data))
+#rename the NAME
+us_states2 <- us_states %>%  
+  select(state = NAME)
+```
+
+```{r}
+#spatial join between the storm database and the states object 
+storm_state <- st_join(storm_data, us_states2, join = st_intersects, left = FALSE)
+#group_by(state) to group the next step by US
+statetop_states <- storm_states %>%   
+  group_by(state) %>%   
+summarize(storms = length(unique(NAME))) %>% 
+  arrange(desc(storms)) %>% 
+  slice(1:5)
+```
