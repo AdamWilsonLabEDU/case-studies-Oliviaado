@@ -58,7 +58,7 @@ ggplot() +
 
 ```{r}
 #calculate table of the five states with most storms
-us_state <- st_transform(us_states, st_crs(storm_data))
+us_states <- st_transform(us_states, st_crs(storm_data))
 #rename the NAME
 us_states2 <- us_states %>%  
   select(state = NAME)
@@ -68,7 +68,7 @@ us_states2 <- us_states %>%
 #spatial join between the storm database and the states object 
 storm_state <- st_join(storm_data, us_states2, join = st_intersects, left = FALSE)
 #group_by(state) to group the next step by US
-statetop_states <- storm_states %>%   
+statetop_states <- storm_state %>%   
   group_by(state) %>%   
 summarize(storms = length(unique(NAME))) %>% 
   arrange(desc(storms)) %>% 
