@@ -5,8 +5,8 @@ format: html
 editor: visual
 ---
 
+##load data
 ```{r}
-#load data
 library(terra)
 library(rasterVis)
 library(ggmap)
@@ -15,26 +15,26 @@ library(knitr)
 library(sf)
 #load new packages
 library(ncdf4)
-
-# Creating a folder to hold the downloaded data
+```
+## Creating a folder to hold the downloaded data
+```{r}
 dir.create("data",showWarnings = F) 
 
-#creating a folder to hold the data
+# creating a folder to hold the data
 lulc_url="https://github.com/adammwilson/DataScienceData/blob/master/inst/extdata/appeears/MCD12Q1.051_aid0001.nc?raw=true"
 lst_url="https://github.com/adammwilson/DataScienceData/blob/master/inst/extdata/appeears/MOD11A2.006_aid0001.nc?raw=true"
 
 #downloading the data
 download.file(lulc_url,destfile="data/MCD12Q1.051_aid0001.nc", mode="wb")
 download.file(lst_url,destfile="data/MOD11A2.006_aid0001.nc", mode="wb")
-
-#load data intp R
+```
+##load data into R
+```{r}
 lulc=rast("data/MCD12Q1.051_aid0001.nc",subds="Land_Cover_Type_1")
 lst=rast("data/MOD11A2.006_aid0001.nc",subds="LST_Day_1km")
-
-#exploring LULC data
-#plotting lulc
-plot(lulc)
-
+```
+##exploring LULC data
+```{r}
 #working with one year to keep it simple
 lulc=lulc[[13]]
 plot(lulc)
@@ -87,35 +87,89 @@ gplot(lulc)+
   coord_equal()+
   theme(legend.position = "right")+
   guides(fill=guide_legend(ncol=1,byrow=TRUE))
-
+```
+##plot land surface temperature
+```{r}
 #let's plot land surface temperature
 plot(lst[[1:12]])
 
 #let's convert LST from degrees kelvin(k) to Celcious(C) using scoff()
 scoff(lst)=cbind(0.02,-273.15)
 plot(lst[[1:10]])
-
-#part 1
+```
+## Part 1: Extract timeseries for a point
+```{r}
 #extracting LST values for a single point and plotting them
-lw= data.frame(x= -78.791547,y=43.007211) %>% st_as_sf(coords=c("x","y"),crs=4326)
+lw = data.frame(x = -78.791547, y = 43.007211) %>% st_as_sf(coords=c("x","y"), crs = 4326)
 #transform the point to the projection of the raster
-lw_transformed <- st_transform(lw, crs = st_crs(lst))
+lw_rast <- st_transform(lw, crs = st_crs(lst))
 
 #extracting the LST data for that location
-extract_lst <- terra::extract(lst,lw,buffer=1000,fun=mean,na.rm=T) %>% 
-  select(-1) %>% t() %>% as.data.frame()
+extracted_LST <- terra::extract(lst, lw_rast, buffer=1000, fun=mean, na.rm=T) %>% select(-1) %>% t() %>% 
+  as.data.frame()
 
 #extracting the dates for each layer with time(lst)
-dates <- time(lst)
+time(lst)
 
 #combining the dates and transposed raster values into a data.frame
-lst_data <- data.frame(dates = time(1st), lst_values_t = t(lst_values))
+LST_time <- cbind.data.frame(extracted_LST, time(lst))
+colnames(LST_time) <-  c("mean_temp", "date") 
+# change column name
 
 #plotting with ggplot
+ggplot(LST_time, aes(x = date, y = mean_temp)) +
+  geom_point() +
+  geom_line() +
+  geom_smooth(span= 0.05) +
+  labs(x = 'date', y = 'Monthly Mean Land Surface Temperature')
+```
+# Part 2: Summary of weekly data to monthly 
+```{r}
+# summarize the mean value per month 
+lst_month <- tapp(lst, index='month', fun=mean, na.rm = TRUE) # apply a function to subsets of layer of a SpatRaster
 
-ggplot(lst_data, aes(x = dates, y = LST)) +
-  geom_point(color = "blue", size = 2) +  
-  geom_smooth(method = "loess", span = 0.3, n = 100) 
+# set the names of the layers to months
+names(lst_month) = month.name[as.numeric(str_replace(names(lst_month),"m_",""))]
 
+# plot the map for each month
+gplot(lst_month) + geom_raster(aes(fill = value)) +
+          facet_wrap(~ variable) + 
+          theme(axis.text.x = element_blank(),
+                axis.text.y = element_blank()) +
+          scale_fill_gradientn(colors = c("blue", "white", "red")) +
+          labs(x = 'x', y = 'y')
+
+# calculate the monthly mean for the entire image
+global(lst_month, mean, na.rm=T)
 
 ```
+# Part 3: Summary of Land Surface Temperature by Land Cover
+
+```{r}
+# Resample lulc to lst grid using resample() with method=near to create a new object called lulc2.
+lulc2 <- resample(lulc, lst, method = 'near')
+
+# Extract the values from lst_month and lulc2 into a data.frame as follows:
+lcds1 <- cbind.data.frame(values(lst_month), ID=values(lulc2[[1]]))%>% 
+  na.omit() 
+  
+lcds1 %>% 
+  # Gather the data into a ‘tidy’ format
+  gather(key='month',value='value',-Land_Cover_Type_1_13) %>%
+  # convert ID to numeric 
+  mutate(ID=as.numeric(Land_Cover_Type_1_13)) %>% 
+  # left join with lcd (lcd: landcover and color table)
+  left_join(lcd, by='ID') %>% 
+  # filter 
+  filter(landcover%in%c("Urban & built-up","Deciduous Broadleaf forest")) %>%
+  # visualize
+  ggplot(aes(x = month, y = value), alpha = 0.3) +
+    geom_jitter() +
+    geom_violin(
+      alpha = 0.7, fill='#A4A4A4', color="darkred") +
+    facet_wrap(~landcover, ncol = 2) +
+    labs(x = 'Month', y = 'Monthly Mean Land Surface Temperature (C)') +
+    ggtitle('Land Surface Temperature in Urban and Forest')
+
+```
+
