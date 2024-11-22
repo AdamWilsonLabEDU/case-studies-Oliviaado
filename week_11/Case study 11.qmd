@@ -25,7 +25,7 @@ library(doParallel)
 
 ```{r}
 library(tidycensus)
-census_api_key("677c6e6ec5f3c8621d7b139013d29cb61cf4dcdd")
+census_api_key("417cc64c980f4dfa2814c426b51e2e85b6feff4c", install = TRUE, overwrite = TRUE )
 ```
 
 ```{r}
