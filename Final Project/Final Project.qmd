@@ -1,0 +1,138 @@
+---
+title: "Project Title: Land Use/Land Cover Change Detection in Southwest Minnesota"
+author: "Olivia Adomabea"
+format: html
+editor: visual
+---
+
+```{r}
+# load packages
+# install.packages("terra")
+library(terra)
+library(tidyverse)
+library(RColorBrewer)
+```
+
+```{r}
+# load raster file
+landcover_path_2000 <- "/Users/oliviaadomabea/Documents/Spatial_Data_Analysis_Respo/case-studies-Oliviaado/Final Project/data/MNLC/landcover_2000.tif"
+
+landcover_path_2020 <- "/Users/oliviaadomabea/Documents/Spatial_Data_Analysis_Respo/case-studies-Oliviaado/Final Project/data/MNLC/landcover_2020.tif"
+
+landcover_2000 <- rast(landcover_path_2000)
+landcover_2020 <- rast(landcover_path_2020)
+print(landcover_2000)
+print(landcover_2020)
+```
+
+```{r}
+# explore raster file
+landcover_cat_2000 <- unique(values(landcover_2000))
+landcover_cat_2020 <- unique(values(landcover_2020))
+print(landcover_cat_2000)
+print(landcover_cat_2020)
+```
+
+```{r}
+# count pixels per landcover category
+landcover_2000_pc <- freq(landcover_2000, digits = 0)
+print(landcover_2000_pc)
+landcover_2020_pc <- freq(landcover_2020, digits = 0)
+print(landcover_2020_pc)
+```
+
+```{r}
+# for 2000
+# convert pixel counts to a df
+landcover_2000_pc <- as.data.frame(landcover_2000_pc[, c(2,3)])
+colnames(landcover_2000_pc) <- c("Landcover_Class", "Pixel_Count_2000")
+print(landcover_2000_pc)
+
+# adding proportion to the df
+total_pixels <- sum(landcover_2000_pc$Pixel_Count_2000)
+landcover_2000_pc$Percentage_2000 <- (landcover_2000_pc$Pixel_Count_2000 / total_pixels) * 100
+```
+
+```{r}
+# for 2020
+# convert pixel counts to a df
+landcover_2020_pc <- as.data.frame(landcover_2020_pc[, c(2,3)])
+colnames(landcover_2020_pc) <- c("Landcover_Class", "Pixel_Count_2020")
+print(landcover_2020_pc)
+
+# adding proportion to the df
+total_pixels <- sum(landcover_2020_pc$Pixel_Count_2020)
+landcover_2020_pc$Percentage_2020 <- (landcover_2020_pc$Pixel_Count_2020 / total_pixels) * 100
+```
+
+```{r}
+library(tidyverse)
+lc_2000_2020 <- left_join(landcover_2000_pc, landcover_2020_pc, by = "Landcover_Class")
+lc_2000_2020 <- lc_2000_2020 %>%
+  mutate(land_cover_class = case_when(
+    Landcover_Class == 11 ~ "open water",
+    Landcover_Class == 21 ~ "developed area",
+    Landcover_Class == 22 ~ "developed area",
+    Landcover_Class == 23 ~ "developed area",
+    Landcover_Class == 24 ~ "developed area",
+    Landcover_Class == 31 ~ "barren land",
+    Landcover_Class == 41 ~ "forest",
+    Landcover_Class == 42 ~ "forest",
+    Landcover_Class == 43 ~ "forest",
+    Landcover_Class == 52 ~ "grassland",
+    Landcover_Class == 71 ~ "grassland",
+    Landcover_Class == 81 ~ "grassland",
+    Landcover_Class == 82 ~ "cultivated crops",
+    Landcover_Class == 90 ~ "wetlands",
+    Landcover_Class == 95 ~ "wetlands"
+  ))
+
+lc_2000_2020 <- lc_2000_2020[, c(2:6)]
+lc_2000_2020 <- lc_2000_2020 %>% group_by(land_cover_class) %>%
+  summarise(across(everything(), sum, na.rm = TRUE))
+```
+
+```{r}
+# some exploratory data analysis
+# 1. group bar plot
+data <- lc_2000_2020 %>% 
+  pivot_longer(cols = c(Percentage_2000, Percentage_2020), 
+               names_to = "Year", values_to = "Value")
+
+ggplot(data, aes(x = land_cover_class, y = Value, fill = Year)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Landcover Comparison by Year",
+       x = "Land Cover",
+       y = "Percent Coverage") +
+  theme_minimal() + scale_fill_brewer(palette = "Set3")
+```
+
+```{r}
+# 2. visualizing the raster file spatially
+n_classes <- length(landcover_2000_pc$Landcover_Class)
+palette <- brewer.pal(n = n_classes, name = "Set3")
+
+plot(landcover_2000, col = palette, legend = TRUE,
+     main = "Spatial Distribution of Landcover Categories\n of Southwestern Minnesota in 2000")
+```
+```{r}
+plot(landcover_2020, col = palette, legend = TRUE,
+     main = "Spatial Distribution of Landcover Categories\n of Southwestern Minnesota in 2020")
+```
+
+```{r}
+# preprocessing for change detection
+landcover_2020 <- resample(landcover_2020, landcover_2000, method = "near")
+
+# calculating change
+change <- landcover_2020 - landcover_2000
+```
+
+```{r}
+change[change == 0] <- NA
+custom_colors <- c("white", "green", "blue", "yellow", "red", "purple")
+
+# visualize change
+plot(change, col = custom_colors[-1], legend = TRUE,
+     main = "Landcover Changes (2000 - 2020)")
+```
