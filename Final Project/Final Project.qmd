@@ -1,5 +1,5 @@
 ---
-title: "Project Title: Land Use/Land Cover Change Detection in Southwest Minnesota"
+title: "Project Title: Land Use/Land Cover Change Detection in the Twin Cities Metro Area, Minnesota"
 author: "Olivia Adomabea"
 format: html
 editor: visual
@@ -15,9 +15,9 @@ library(RColorBrewer)
 
 ```{r}
 # load raster file
-landcover_path_2000 <- "/Users/oliviaadomabea/Documents/Spatial_Data_Analysis_Respo/case-studies-Oliviaado/Final Project/data/MNLC/landcover_2000.tif"
+landcover_path_2000 <- "/Users/oliviaadomabea/Documents/Spatial_Data_Analysis_Respo/case-studies-Oliviaado/Final Project/Minnesota/Annual_NLCD_H18V05_LndCov_2000_CU_C1V0.tif"
 
-landcover_path_2020 <- "/Users/oliviaadomabea/Documents/Spatial_Data_Analysis_Respo/case-studies-Oliviaado/Final Project/data/MNLC/landcover_2020.tif"
+landcover_path_2020 <- "/Users/oliviaadomabea/Documents/Spatial_Data_Analysis_Respo/case-studies-Oliviaado/Final Project/Minnesota/Annual_NLCD_H18V05_LndCov_2020_CU_C1V0.tif"
 
 landcover_2000 <- rast(landcover_path_2000)
 landcover_2020 <- rast(landcover_path_2020)
@@ -104,20 +104,33 @@ ggplot(data, aes(x = land_cover_class, y = Value, fill = Year)) +
   labs(title = "Landcover Comparison by Year",
        x = "Land Cover",
        y = "Percent Coverage") +
-  theme_minimal() + scale_fill_brewer(palette = "Set3")
+  theme_minimal() + scale_fill_brewer(palette = "Set1") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 ```
 
 ```{r}
 # 2. visualizing the raster file spatially
-n_classes <- length(landcover_2000_pc$Landcover_Class)
+n_classes <- length(lc_2000_2020$land_cover_class)
 palette <- brewer.pal(n = n_classes, name = "Set3")
+# 
+# plot(landcover_2000, col = palette, legend = TRUE,
+#      main = "Spatial Distribution of Landcover Categories\n of Southwestern Minnesota in 2000")
 
-plot(landcover_2000, col = palette, legend = TRUE,
-     main = "Spatial Distribution of Landcover Categories\n of Southwestern Minnesota in 2000")
+library(tmap)
+tmap_mode("view")
+tm_shape(landcover_2000) + tm_raster(title = "Landcover_Classes") + 
+  tm_layout(title = "Spatial Distribution of Landcover Categories\n of Southwestern Minnesota in 2000", legend.outside = TRUE)
+
 ```
+
 ```{r}
-plot(landcover_2020, col = palette, legend = TRUE,
-     main = "Spatial Distribution of Landcover Categories\n of Southwestern Minnesota in 2020")
+# plot(landcover_2020, col = palette, legend = TRUE,
+#      main = "Spatial Distribution of Landcover Categories\n of Southwestern Minnesota in 2020")
+
+library(tmap)
+tmap_mode("view")
+tm_shape(landcover_2020) + tm_raster(title = "Landcover_Classes") + 
+  tm_layout(title = "Spatial Distribution of Landcover Categories\n of Southwestern Minnesota in 2020", legend.outside = TRUE)
 ```
 
 ```{r}
@@ -133,6 +146,9 @@ change[change == 0] <- NA
 custom_colors <- c("white", "green", "blue", "yellow", "red", "purple")
 
 # visualize change
-plot(change, col = custom_colors[-1], legend = TRUE,
-     main = "Landcover Changes (2000 - 2020)")
+tmap_mode("view")
+tm_shape(change) + tm_raster(title = "Change") + tm_layout("Interactive Change Map")
+
+# plot(change, col = custom_colors[-1], legend = TRUE,
+#      main = "Landcover Changes (2000 - 2020)")
 ```
